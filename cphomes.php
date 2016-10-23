@@ -62,12 +62,12 @@ class DBUserManager extends Singleton {
     }
 
     final public static function RegisterUser($username, $password,
-            $realname, $telephone, $userType, $serviceType) {
+            $mobilePhoneNumber, $realname, $userType, $serviceType) {
         $res = self::$bmobUser->register(
             array(
                 'username' => $username,
                 'password' => self::hashPassword($username, $password),
-                'mobilePhoneNumber' => $telephone,
+                'mobilePhoneNumber' => $mobilePhoneNumber,
                 'mobilePhoneNumberVerified' => false,
                 'name' => $realname,
                 'userType' => $userType,
@@ -76,9 +76,9 @@ class DBUserManager extends Singleton {
         return new DBUser($res);
     }
 
-    final public static function LoginUser($username, $password) {
-        $res = self::$bmobUser->login($username,
-            self::hashPassword($username, $password));
+    final public static function LoginUser($mobilePhoneNumber, $password) {
+        $res = self::$bmobUser->login($mobilePhoneNumber,
+            self::hashPassword($mobilePhoneNumber, $password));
         return new DBUser($res);
     }
 
@@ -109,6 +109,7 @@ class DBUser extends DBUserManager {
     private $bmobSms;
 
     public function __construct($userInfo) {
+        $this->bmobSms = new BmobSms();
         $this->userInfo = $userInfo;
     }
 
@@ -123,27 +124,27 @@ class DBUser extends DBUserManager {
 
     public function verifyRequest() {
         if (!$this->isVerified()) {
-            /*$this->bmobSms = new BmobSms();
             try {
                 $res = $this->bmobSms->sendSmsVerifyCode(
                     $this->userInfo->mobilePhoneNumber);
-                $this->updateUserRecord(array('smsCode' => $res->smsId));
                 return true;
             } catch (Exception $e) {
                 echo "DBUser.verifyRequest: ".$e;
-            }*/
+            }
             return true;
         }
         return false;
     }
 
     public function verifyAcknowledge($code) {
-        /*$res = self::$bmobUser->loginByMobile($userInfo->mobilePhoneNumber,
-            intval($code));
-        var_dump($res);*/
-        $this->updateUserRecord(array('mobilePhoneNumberVerified' => true));
-        $this->userInfo->mobilePhoneNumberVerified = true;
-        return true;
+        $res = $this->bmobSms->verifySmsCode(
+            $this->userInfo->mobilePhoneNumber, $code);
+        if (isset($res->msg) && $res->msg == "ok") {
+            $this->updateUserRecord(array('mobilePhoneNumberVerified' => true));
+            $this->userInfo->mobilePhoneNumberVerified = true;
+            return true;
+        }
+        return false;
     }
 
     final public function getReference() {
@@ -291,11 +292,11 @@ class ServiceManager {
         $this->dbCoupon = DBCouponManager::getInstance();
     }
 
-    public function addUser($username, $password, $name, $phone,
+    public function addUser($username, $password, $mobilePhoneNumber, $name,
             $userType, $serviceType) {
         try {
-            $user = $this->dbUser->RegisterUser($username, $password, $name,
-                $phone, $userType, $serviceType);
+            $user = $this->dbUser->RegisterUser($username, $password,
+                $mobilePhoneNumber, $name, $userType, $serviceType);
         } catch (Exception $e) {
             if ($e->getCode() != 202)
                 throw($e);
@@ -305,19 +306,16 @@ class ServiceManager {
 
     public function loginUser($username, $password) {
         $user = $this->dbUser->LoginUser($username, $password);
-        if ($user->verifyRequest()) {
-            $code = readline('Enter SMS verification code: ');
-            if (!$user->verifyAcknowledge($code)) {
-                throw(new BmobException("unable to verify account", 1001));
-            }
-        }
+        return $user;
     }
 }
 
 class Menu {
     private $commandList = array(
-        array('key' => '1', 'desc' => 'Add User', 'func' => doAddUser),
-        array('key' => '2', 'desc' => 'Login User', 'func' => doLoginUser));
+        array('key' => '1', 'desc' => '预约认证',
+            'func' => doMakeAppointment),
+        array('key' => '2', 'desc' => '确认消费',
+            'func' => doVerifyTransaction));
 
     private $serviceManager;
 
@@ -329,7 +327,7 @@ class Menu {
         $prompt = "";
         foreach ($this->commandList as $command)
             $prompt = $prompt."[$command[key]] $command[desc]\n";
-        return readline("$prompt\nChoice: ");
+        return readline("$prompt\n选择：");
     }
 
     private function findCommand($choice) {
@@ -340,31 +338,30 @@ class Menu {
         return null;
     }
 
-    private function doAddUser() {
-        $username = readline('Username: ');
-        $password = readline('Password: ');
-        $name = readline('Name: ');
-        $phone = readline('Mobile Phone Number: ');
-        $userType = readline('User Type [client/provider]: ');
-        $serviceType = array();
-        $counter = 0;
-        while (($service = readline('Service Type '.++$counter.': ')) != null) {
-            $serviceType[$counter-1] = $service;
-        }
-        if (isset($username) && isset($password) && isset($name) &&
-                 isset($phone) && isset($userType)) {
-            $user = $this->serviceManager->addUser($username, $password, $name, $phone, $userType, $serviceType);
-            var_dump($user);
+    private function doMakeAppointment() {
+        $mobilePhoneNumber = readline('请输入手机号：');
+        if (isset($mobilePhoneNumber)) {
+            $this->serviceManager->addUser($mobilePhoneNumber,
+                $mobilePhoneNumber, $mobilePhoneNumber, $mobilePhoneNumber,
+                'client', array('TypeA'));
+            $user = $this->serviceManager->loginUser($mobilePhoneNumber,
+                $mobilePhoneNumber);
+            if ($user->verifyRequest()) {
+            } else
+                echo "\n该用户无权免费使用本服务。\n";
         } else
-            echo "parameter error\n";
+            echo "\n输入失败。\n";
     }
 
-    private function doLoginUser() {
-        $username = readline('Username: ');
-        $password = readline('Password: ');
-        if (isset($username) && isset($password)) {
-            $user = $this->serviceManager->loginUser($username, $password);
-            var_dump($user);
+    private function doVerifyTransaction() {
+        $mobilePhoneNumber = readline('请输入手机号：');
+        $user = $this->serviceManager->loginUser($mobilePhoneNumber,
+            $mobilePhoneNumber);
+        if (isset($user)) {
+            if (!$user->isVerified()) {
+                $authCode = readline('请输入授权码：');
+                $user->verifyAcknowledge($authCode);
+            }
         }
     }
 
@@ -375,7 +372,7 @@ class Menu {
                 if (isset($command))
                     $this->$command['func']();
                 else
-                    echo "Invalid choice `$choice'.\n\n";
+                    echo "“$choice”没有对应的选择。\n\n";
             } catch (Exception $e) {
                 echo $e;
             }
@@ -388,29 +385,5 @@ try {
     $menu->loop();
 } catch(Exception $e) {
     echo "Uncaught exception: $e\n";
-}
-exit(0);
-
-try {
-    $prom = $dbPromotion->FindPromotion('TypeA', 'PromotionA');
-    if (!isset($prom)) {
-        $prom = $dbPromotion->CreatePromotion('TypeA', 'PromotionA',
-            "Promotion A", "2016-10-19 09:00:00", "2016-10-19 17:59:59");
-    }
-
-    $coupon = $dbCoupon->GrantUserCoupon($user, $prom, 5);
-    if (isset($coupon)) {
-        /* ... */
-    }
-
-    $dbUser->GetProviderList('TypeA');
-
-    $searchUser = $dbUser->FindUserByMobilePhoneNumber('18665365469');
-    if (isset($searchUser)) {
-        $coupon = $dbCoupon->FindCouponGrant($searchUser, $prom);
-        var_dump($coupon);
-    }
-} catch (Exception $e) {
-    echo $e;
 }
 exit(0);
