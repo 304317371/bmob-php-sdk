@@ -124,25 +124,26 @@ class DBUser extends DBUserManager {
 
     public function verifyRequest() {
         if (!$this->isVerified()) {
-            try {
-                $res = $this->bmobSms->sendSmsVerifyCode(
-                    $this->userInfo->mobilePhoneNumber);
-                return true;
-            } catch (Exception $e) {
-                echo "DBUser.verifyRequest: ".$e;
-            }
+            $res = $this->bmobSms->sendSmsVerifyCode(
+                $this->userInfo->mobilePhoneNumber);
             return true;
         }
         return false;
     }
 
     public function verifyAcknowledge($code) {
-        $res = $this->bmobSms->verifySmsCode(
-            $this->userInfo->mobilePhoneNumber, $code);
-        if (isset($res->msg) && $res->msg == "ok") {
-            $this->updateUserRecord(array('mobilePhoneNumberVerified' => true));
-            $this->userInfo->mobilePhoneNumberVerified = true;
-            return true;
+        try {
+            $res = $this->bmobSms->verifySmsCode(
+                $this->userInfo->mobilePhoneNumber, $code);
+            if (isset($res->msg) && $res->msg == "ok") {
+                $this->updateUserRecord(
+                    array('mobilePhoneNumberVerified' => true));
+                $this->userInfo->mobilePhoneNumberVerified = true;
+                return true;
+            }
+        } catch (Exception $e) {
+            if ($e->getCode() != 207)
+                throw($e);
         }
         return false;
     }
