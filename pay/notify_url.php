@@ -16,10 +16,10 @@
 
 //获取Bmob的通知返回参数，可参考Bmob文档中服务器异步通知参数列表
 
-//商户订单号
+//商户订单号
 $out_trade_no = $_POST['out_trade_no'];
 
-//支付宝交易号
+//支付宝交易号
 $trade_no = $_POST['trade_no'];
 
 //交易状态
