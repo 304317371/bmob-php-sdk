@@ -3,12 +3,18 @@ include_once 'framework/ServiceManager.php';
 
 header('Content-Type: text/html; charset=utf-8');
 
-$baseURL = $_SERVER['REQUEST_URI'];
-
 $serviceManager = new ServiceManager();
+$baseURL = $_SERVER['SCRIPT_NAME'];
 
-$command = $_GET['command'];
-if ($command == "register") {
+function parseCommand($commandString, $baseURL) {
+    $baseLen = strlen($baseURL);
+    if (strncmp($commandString, $baseURL, $baseLen) == 0) {
+        return substr($commandString, $baseLen);
+    }
+    return null;
+}
+
+function performRegisterCommand() {
     $mobilePhoneNumber = $_POST['mobilePhoneNumber'];
     if (isset($mobilePhoneNumber)) {
         try {
@@ -17,35 +23,18 @@ if ($command == "register") {
                 'client', array('TypeA'));
             $user = $serviceManager->loginUser($mobilePhoneNumber,
                 $mobilePhoneNumber);
-            if ($user->verifyRequest()) {
-                echo
-                    "<div>\n".
-                    "  <form action=\"index.php\" method=\"post\">\n".
-                    "    <div>手机号".
-                         "<input type=\"text\" name=\"mobilePhoneNumber\" ".
-                             "value=\"$mobilePhoneNumber\"></div>\n".
-                    "    <div>姓名".
-                         "<input type=\"text\" name=\"realname\"></div>\n".
-                    "    <div><input type=\"submit\" value=\"提交\"></div>\n".
-                    "  </form>\n".
-                    "</div>\n";
-            } else {
-                echo "<div>该用户无权免费使用本服务。</div>\n";
-            }
+            if ($user->verifyRequest())
+                include 'layout/register_details.php';
+            else
+                include 'layout/error_permission.php';
         } catch (Exception $e) {
             echo "<div>$e</div>\n";
         }
-    } else {
-        echo
-            "<div>\n".
-            "  <form action=\"$baseURL\" method=\"post\">\n".
-            "    请输入手机号".
-                 "<input type=\"text\" name=\"mobilePhoneNumber\">".
-                 "<input type=\"submit\" value=\"提交\">\n".
-            "  </form>\n".
-            "</div>";
-    }
-} else if ($command == "activate") {
+    } else
+        include 'layout/register.php';
+}
+
+function performActivateCommand() {
     $mobilePhoneNumber = $_POST['mobilePhoneNumber'];
     $authCode = $_POST['authCode'];
     if (isset($mobilePhoneNumber) && isset($authCode)) {
@@ -53,37 +42,27 @@ if ($command == "register") {
             $user = $serviceManager->loginUser($mobilePhoneNumber,
                 $mobilePhoneNumber);
             if (!$user->isVerified()) {
-                if ($user->verifyAcknowledge($authCode)) {
-                    echo "<div>授权成功！</div>\n";
-                } else {
-                    echo "<div>授权码不正确，请重试。</div>\n";
-                }
-            } else {
-                echo "<div>该用户无权免费使用本服务。</div>\n";
-            }
+                if ($user->verifyAcknowledge($authCode))
+                    include 'layout/success.php';
+                else
+                    include 'layout/error_authcode.php';
+            } else
+                include 'layout/error_permission.php';
         } catch (Exception $e) {
             echo "<div>$e</div>\n";
         }
-    } else {
-        echo
-            "<div>\n".
-            "  <form action=\"$baseURL\" method=\"post\">\n".
-            "    <div>手机号".
-                 "<input type=\"text\" name=\"mobilePhoneNumber\" ".
-                     "value=\"$mobilePhoneNumber\"></div>\n".
-            "    <div>授权码".
-                 "<input type=\"text\" name=\"authCode\" ".
-                     "value=\"$authCode\"></div>\n".
-            "    <div><input type=\"submit\" value=\"提交\"></div>\n".
-            "  </form>\n".
-            "</div>\n";
-    }
-} else {
-    echo 
-        "<div>\n".
-        "  <div>cphomes系统</div>\n".
-        "  <div><a href=\"$baseURL?command=register\">预约认证</a></div>\n".
-        "  <div><a href=\"$baseURL?command=activate\">确认消费</a></div>\n".
-        "</div>\n";
+    } else
+        include 'layout/activate.php';
 }
+
+$commandTable = array(
+    '/register' => performRegisterCommand,
+    '/activate' => performActivateCommand
+);
+
+$command = parseCommand($_SERVER['REQUEST_URI'], $baseURL);
+if (isset($commandTable[$command]))
+    $commandTable[$command]();
+else
+    include 'layout/index.php';
 ?>

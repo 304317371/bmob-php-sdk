@@ -1,6 +1,7 @@
 <?php
 include_once 'lib/BmobUser.class.php';
 include_once 'lib/BmobSms.class.php';
+include_once 'framework/BmobWrapper.php';
 include_once 'framework/Singleton.php';
 
 class DBUserManager extends Singleton {

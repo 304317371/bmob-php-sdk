@@ -42,7 +42,7 @@ class BmobQueryList {
     }
 
     public function addQuery($query) {
-        $this->queryList[count($this->queryList)] = $query;
+        array_push($this->queryList, $query);
         return $this;
     }
 

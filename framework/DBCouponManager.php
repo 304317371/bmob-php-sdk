@@ -1,5 +1,6 @@
 <?php
 include_once 'lib/BmobObject.class.php';
+include_once 'framework/BmobWrapper.php';
 include_once 'framework/Singleton.php';
 
 class DBCouponManager extends DBObjectManager {
