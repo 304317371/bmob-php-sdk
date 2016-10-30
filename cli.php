@@ -1,5 +1,6 @@
 <?php
-include_once 'cphomes.php';
+include_once 'framework/ServiceManager.php';
+include_once 'framework/BmobQueryBuilder.php';
 
 class Menu {
     private $commandList = array(

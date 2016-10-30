@@ -1,5 +1,5 @@
 <?php
-include_once 'cphomes.php';
+include_once 'framework/ServiceManager.php';
 
 header('Content-Type: text/html; charset=utf-8');
 
