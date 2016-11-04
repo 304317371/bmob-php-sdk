@@ -14,7 +14,7 @@ function parseCommand($commandString, $baseURL) {
     return null;
 }
 
-function performRegisterCommand() {
+function performRegisterCommand($serviceManager) {
     $mobilePhoneNumber = $_POST['mobilePhoneNumber'];
     if (isset($mobilePhoneNumber)) {
         try {
@@ -34,7 +34,7 @@ function performRegisterCommand() {
         include 'layout/register.php';
 }
 
-function performActivateCommand() {
+function performActivateCommand($serviceManager) {
     $mobilePhoneNumber = $_POST['mobilePhoneNumber'];
     $authCode = $_POST['authCode'];
     if (isset($mobilePhoneNumber) && isset($authCode)) {
@@ -62,7 +62,7 @@ $commandTable = array(
 
 $command = parseCommand($_SERVER['REQUEST_URI'], $baseURL);
 if (isset($commandTable[$command]))
-    $commandTable[$command]();
+    $commandTable[$command]($serviceManager);
 else
     include 'layout/index.php';
 ?>
